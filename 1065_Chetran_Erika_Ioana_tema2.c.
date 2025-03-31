@@ -1,0 +1,394 @@
+#define _CRT_SECURE_NO_WARNINGS
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+typedef struct Elev {
+    char* nume;
+    char* clasa;
+    int varsta;
+    float medie;
+    int nrMatricol;
+    char* adresa;  
+    void* optional; 
+} Elev;
+
+
+typedef struct Nod {
+    Elev info;
+    struct Nod* next;
+    struct Nod* prev;
+} Nod;
+
+typedef struct NodSimplu {
+    Elev info;
+    struct NodSimplu* next;
+} NodSimplu;
+
+Elev creareElev(char* nume, char* clasa, int varsta, float medie, int nrMatricol, char* adresa) {
+    Elev e;
+
+    e.nume = (char*)malloc(strlen(nume) + 1);
+    if (e.nume == NULL) {
+        printf("Eroare la alocarea memoriei pentru nume.\n");
+        exit(1);
+    }
+    strcpy(e.nume, nume);
+
+    e.clasa = (char*)malloc(strlen(clasa) + 1);
+    if (e.clasa == NULL) {
+        free(e.nume);
+        printf("Eroare la alocarea memoriei pentru clasa.\n");
+        exit(1);
+    }
+    strcpy(e.clasa, clasa);
+
+    e.adresa = (char*)malloc(strlen(adresa) + 1);
+    if (e.adresa == NULL) {
+        free(e.nume);
+        free(e.clasa);
+        printf("Eroare la alocarea memoriei pentru adresa.\n");
+        exit(1);
+    }
+    strcpy(e.adresa, adresa);
+
+    e.varsta = varsta;
+    e.medie = medie;
+    e.nrMatricol = nrMatricol;
+    e.optional = NULL;
+
+    return e;
+}
+
+Nod* creareNod(Elev e) {
+    Nod* nou = (Nod*)malloc(sizeof(Nod));
+    if (nou == NULL) {
+        printf("Eroare la alocarea memoriei pentru noul nod.\n");
+        exit(1);
+    }
+
+    nou->info = e;
+    nou->next = NULL;
+    nou->prev = NULL;
+
+    return nou;
+}
+
+NodSimplu* creareNodSimplu(Elev e) {
+    NodSimplu* nou = (NodSimplu*)malloc(sizeof(NodSimplu));
+    if (nou == NULL) {
+        printf("Eroare la alocarea memoriei pentru noul nod simplu.\n");
+        exit(1);
+    }
+
+    nou->info = e;
+    nou->next = NULL;
+
+    return nou;
+}
+
+void inserareInceput(Nod** cap, Elev e) {
+    Nod* nou = creareNod(e);
+
+    if (*cap == NULL) {
+        *cap = nou;
+    }
+    else {
+        nou->next = *cap;
+        (*cap)->prev = nou;
+        *cap = nou;
+    }
+}
+
+// 2. Citire din fișier într-o listă dublu înlănțuită
+Nod* citireDinFisier(const char* numeFisier) {
+    FILE* f = fopen(numeFisier, "r");
+    if (f == NULL) {
+        printf("Eroare la deschiderea fisierului %s\n", numeFisier);
+        return NULL; 
+    }
+
+    Nod* cap = NULL;
+    char nume[100], clasa[20], adresa[200];
+    int varsta, nrMatricol;
+    float medie;
+
+    if (f == NULL) {
+        Elev e1 = creareElev("Popescu", "12A", 18, 9.5, 1001, "Str. Exemplu 1");
+        Elev e2 = creareElev("Ionescu", "11B", 17, 8.2, 1002, "Str. Exemplu 2");
+        Elev e3 = creareElev("Vasilescu", "12C", 18, 7.8, 1003, "Str. Exemplu 3");
+
+        inserareInceput(&cap, e1);
+        inserareInceput(&cap, e2);
+        inserareInceput(&cap, e3);
+
+        return cap;
+    }
+
+    while (fscanf(f, "%s %s %d %f %d %s", nume, clasa, &varsta, &medie, &nrMatricol, adresa) == 6) {
+        Elev e = creareElev(nume, clasa, varsta, medie, nrMatricol, adresa);
+        inserareInceput(&cap, e);
+    }
+
+    fclose(f);
+
+    if (cap == NULL) {
+        Elev e1 = creareElev("Popescu", "12A", 18, 9.5, 1001, "Str. Exemplu 1");
+        Elev e2 = creareElev("Ionescu", "11B", 17, 8.2, 1002, "Str. Exemplu 2");
+        Elev e3 = creareElev("Vasilescu", "12C", 18, 7.8, 1003, "Str. Exemplu 3");
+
+        inserareInceput(&cap, e1);
+        inserareInceput(&cap, e2);
+        inserareInceput(&cap, e3);
+    }
+
+    return cap;
+}
+
+Nod* filtrareLista(Nod* cap) {
+    Nod* listaFiltrata = NULL;
+    Nod* current = cap;
+
+    while (current != NULL) {
+        if (current->info.medie < 8.0) {
+            Elev e = creareElev(current->info.nume, current->info.clasa, current->info.varsta,
+                current->info.medie, current->info.nrMatricol, current->info.adresa);
+            inserareInceput(&listaFiltrata, e);
+        }
+        current = current->next;
+    }
+
+    return listaFiltrata;
+}
+
+void transformareInCirculara(Nod* cap) {
+    if (cap == NULL) return;
+
+    Nod* current = cap;
+
+    while (current->next != NULL) {
+        current = current->next;
+    }
+
+    current->next = cap;
+    cap->prev = current;
+}
+
+void afisareLista(Nod* cap) {
+    if (cap == NULL) {
+        printf("Lista este goala.\n");
+        return;
+    }
+
+    Nod* current = cap;
+    printf("Lista dublu inlantuita:\n");
+    while (current != NULL) {
+        printf("Nume: %s, Clasa: %s, Varsta: %d, Medie: %.2f, Nr. Matricol: %d, Adresa: %s\n",
+            current->info.nume, current->info.clasa, current->info.varsta,
+            current->info.medie, current->info.nrMatricol, current->info.adresa);
+        current = current->next;
+    }
+    printf("\n");
+}
+
+// 6. Afișare listă dublu înlănțuită circulară
+void afisareListaCirculara(Nod* cap) {
+    if (cap == NULL) {
+        printf("Lista circulara este goala.\n");
+        return;
+    }
+
+    Nod* current = cap;
+    printf("Lista dublu inlantuita circulara:\n");
+    do {
+        printf("Nume: %s, Clasa: %s, Varsta: %d, Medie: %.2f, Nr. Matricol: %d, Adresa: %s\n",
+            current->info.nume, current->info.clasa, current->info.varsta,
+            current->info.medie, current->info.nrMatricol, current->info.adresa);
+        current = current->next;
+    } while (current != cap);
+    printf("\n");
+}
+
+NodSimplu* conversieLaListaSimpla(Nod* cap) {
+    if (cap == NULL) return NULL;
+
+    NodSimplu* capSimplu = NULL;
+    NodSimplu* ultimSimplu = NULL;
+    Nod* current = cap;
+
+    while (current != NULL) {
+        Elev e = creareElev(current->info.nume, current->info.clasa, current->info.varsta,
+            current->info.medie, current->info.nrMatricol, current->info.adresa);
+
+        NodSimplu* nou = creareNodSimplu(e);
+
+        if (capSimplu == NULL) {
+            capSimplu = nou;
+            ultimSimplu = nou;
+        }
+        else {
+            ultimSimplu->next = nou;
+            ultimSimplu = nou;
+        }
+
+        current = current->next;
+
+        if (current == cap) break;
+    }
+
+    return capSimplu;
+}
+
+void afisareListaSimpla(NodSimplu* cap) {
+    if (cap == NULL) {
+        printf("Lista simpla este goala.\n");
+        return;
+    }
+
+    NodSimplu* current = cap;
+    printf("Lista simplu inlantuita:\n");
+    while (current != NULL) {
+        printf("Nume: %s, Clasa: %s, Varsta: %d, Medie: %.2f, Nr. Matricol: %d, Adresa: %s\n",
+            current->info.nume, current->info.clasa, current->info.varsta,
+            current->info.medie, current->info.nrMatricol, current->info.adresa);
+        current = current->next;
+    }
+    printf("\n");
+}
+
+void adaugareNodDupaCriteriu(Nod* cap, Elev e) {
+    if (cap == NULL) return;
+
+    Nod* nou = creareNod(e);
+    Nod* current = cap;
+    int gasit = 0;
+
+    do {
+        if (current->info.medie > 9.0) {
+            nou->next = current->next;
+            nou->prev = current;
+
+            if (current->next != NULL) {
+                current->next->prev = nou;
+            }
+            current->next = nou;
+
+            gasit = 1;
+            break;
+        }
+
+        current = current->next;
+
+        if (current == cap) break;
+    } while (current != NULL && current != cap);
+
+    if (!gasit && cap->prev != NULL) {
+        Nod* last = cap->prev;
+        nou->next = cap;
+        nou->prev = last;
+        last->next = nou;
+        cap->prev = nou;
+    }
+    else if (!gasit) {
+        current = cap;
+        while (current->next != NULL) {
+            current = current->next;
+        }
+        current->next = nou;
+        nou->prev = current;
+    }
+}
+
+void eliberareMemorieLista(Nod** cap) {
+    if (*cap == NULL) return;
+
+    Nod* current = *cap;
+    Nod* temp;
+
+    while (current != NULL) {
+        temp = current;
+        current = current->next;
+
+        if (current == *cap) {
+            free(temp->info.nume);
+            free(temp->info.clasa);
+            free(temp->info.adresa);
+            free(temp);
+            break;
+        }
+
+        free(temp->info.nume);
+        free(temp->info.clasa);
+        free(temp->info.adresa);
+        free(temp);
+
+        if (current == NULL) break;
+    }
+
+    *cap = NULL;
+}
+
+void eliberareMemorieListaSimpla(NodSimplu** cap) {
+    if (*cap == NULL) return;
+
+    NodSimplu* current = *cap;
+    NodSimplu* temp;
+
+    while (current != NULL) {
+        temp = current;
+        current = current->next;
+
+        free(temp->info.nume);
+        free(temp->info.clasa);
+        free(temp->info.adresa);
+        free(temp);
+    }
+
+    *cap = NULL;
+}
+
+int main() {
+    // 2. Citire din fisier
+    printf("Se citeste lista din fisier...\n");
+    Nod* listaElevi = citireDinFisier("elevi.txt");
+
+    // 6. Afișare lista initiala
+    afisareLista(listaElevi);
+
+    // 3. Inserare la inceput
+    printf("Se insereaza un nou elev la inceput...\n");
+    Elev nouElev = creareElev("Popescu", "12B", 18, 9.5, 1001, "Str. Noua 1");
+    inserareInceput(&listaElevi, nouElev);
+    afisareLista(listaElevi);
+
+    // 4. Filtrare lista
+    printf("Se creeaza o lista cu elevii care au media sub 8.0...\n");
+    Nod* listaFiltrata = filtrareLista(listaElevi);
+    afisareLista(listaFiltrata);
+
+    // 7. Convertire la lista simplu inlantuita
+    printf("Se converteste lista dublu inlantuita in lista simplu inlantuita...\n");
+    NodSimplu* listaSimpla = conversieLaListaSimpla(listaElevi);
+    afisareListaSimpla(listaSimpla);
+
+    // 5. Transformare in lista cirulara
+    printf("Se transforma lista dublu inlantuita in lista dublu inlantuita circulara...\n");
+    transformareInCirculara(listaElevi);
+    afisareListaCirculara(listaElevi);
+
+    // 8. Adaugare nod langa primul care indeplineste criteriul
+    printf("Se adauga un elev dupa primul care are media peste 9.0...\n");
+    Elev elevNou = creareElev("Ionescu", "11A", 17, 8.7, 1002, "Str. Alta 2");
+    adaugareNodDupaCriteriu(listaElevi, elevNou);
+    afisareListaCirculara(listaElevi);
+
+    // 9. Eliberare memorie
+    printf("Se elibereaza memoria...\n");
+    eliberareMemorieLista(&listaElevi);
+    eliberareMemorieLista(&listaFiltrata);
+    eliberareMemorieListaSimpla(&listaSimpla);
+
+    printf("Program finalizat cu succes!\n");
+
+    return 0;
+}
