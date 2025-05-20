@@ -1,0 +1,5 @@
+5 Ana 8.5 Info 2 ana@email.com 25
+3 Bogdan 9.1 Info 3 bogdan@mail.com 30
+7 Carmen 4.3 Mate 1 carmen@uni.com 12
+6 Daria 6.9 Info 1 daria@mail.com 20
+2 Emi 7.2 Mate 2 emi@edu.com 18
