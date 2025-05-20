@@ -1,0 +1,198 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+typedef struct Student {
+    int id;
+    char *nume;
+    float medie;
+    char *specializare;
+    int an;
+    char *email;
+    int credite;
+} Student;
+
+typedef struct NodArb {
+    Student *info;
+    struct NodArb *st;
+    struct NodArb *dr;
+} NodArb;
+
+// Heap
+typedef struct Heap {
+    Student **elemente;
+    int dim;
+    int capacitate;
+} Heap;
+
+Student* creareStudent(int id, const char* nume, float medie, const char* spec, int an, const char* email, int credite) {
+    Student* s = (Student*)malloc(sizeof(Student));
+    s->id = id;
+    s->nume = strdup(nume);
+    s->medie = medie;
+    s->specializare = strdup(spec);
+    s->an = an;
+    s->email = strdup(email);
+    s->credite = credite;
+    return s;
+}
+
+// Inserare în arbore
+NodArb* inserareArbore(NodArb* rad, Student* info) {
+    if (!rad) {
+        NodArb* nou = (NodArb*)malloc(sizeof(NodArb));
+        nou->info = info;
+        nou->st = nou->dr = NULL;
+        return nou;
+    }
+    if (info->id < rad->info->id)
+        rad->st = inserareArbore(rad->st, info);
+    else
+        rad->dr = inserareArbore(rad->dr, info);
+    return rad;
+}
+
+NodArb* citireFisier(const char* numeFisier) {
+    FILE* f = fopen(numeFisier, "r");
+    if (!f) return NULL;
+    NodArb* rad = NULL;
+    int id, an, credite;
+    float medie;
+    char nume[100], spec[100], email[100];
+    while (fscanf(f, "%d %s %f %s %d %s %d", &id, nume, &medie, spec, &an, email, &credite) == 7) {
+        Student* s = creareStudent(id, nume, medie, spec, an, email, credite);
+        rad = inserareArbore(rad, s);
+    }
+    fclose(f);
+    return rad;
+}
+
+int numarFrunze(NodArb* rad) {
+    if (!rad) return 0;
+    if (!rad->st && !rad->dr) return 1;
+    return numarFrunze(rad->st) + numarFrunze(rad->dr);
+}
+
+void inserareHeap(Heap* h, Student* s) {
+    if (h->dim == h->capacitate) return;
+    h->elemente[h->dim] = s;
+    int i = h->dim;
+    while (i > 0 && h->elemente[(i - 1) / 2]->medie > h->elemente[i]->medie) {
+        Student* aux = h->elemente[i];
+        h->elemente[i] = h->elemente[(i - 1) / 2];
+        h->elemente[(i - 1) / 2] = aux;
+        i = (i - 1) / 2;
+    }
+    h->dim++;
+}
+
+// Construire heap din arbore
+void construireHeap(NodArb* rad, Heap* h) {
+    if (rad) {
+        inserareHeap(h, rad->info);
+        construireHeap(rad->st, h);
+        construireHeap(rad->dr, h);
+    }
+}
+
+void heapify(Heap* h, int i) {
+    int min = i;
+    int l = 2 * i + 1;
+    int r = 2 * i + 2;
+    if (l < h->dim && h->elemente[l]->medie < h->elemente[min]->medie)
+        min = l;
+    if (r < h->dim && h->elemente[r]->medie < h->elemente[min]->medie)
+        min = r;
+    if (min != i) {
+        Student* aux = h->elemente[i];
+        h->elemente[i] = h->elemente[min];
+        h->elemente[min] = aux;
+        heapify(h, min);
+    }
+}
+
+void afisareFrunzeHeap(Heap* h) {
+    for (int i = 0; i < h->dim; i++) {
+        int l = 2 * i + 1;
+        int r = 2 * i + 2;
+        if (l >= h->dim && r >= h->dim) {
+            printf("Frunza heap: %s (medie: %.2f)\n", h->elemente[i]->nume, h->elemente[i]->medie);
+        }
+    }
+}
+
+void parcurgereArbore(NodArb* rad) {
+    if (rad) {
+        printf("Arbore: %s\n", rad->info->nume);
+        parcurgereArbore(rad->st);
+        parcurgereArbore(rad->dr);
+    }
+}
+
+void parcurgereHeap(Heap* h) {
+    for (int i = 0; i < h->dim; i++) {
+        printf("Heap: %s (medie: %.2f)\n", h->elemente[i]->nume, h->elemente[i]->medie);
+    }
+}
+
+void stergereCriteriu(Heap* h) {
+    int i = 0;
+    while (i < h->dim) {
+        if (h->elemente[i]->medie < 5.0f) {
+            h->elemente[i] = h->elemente[h->dim - 1];
+            h->dim--;
+            heapify(h, i);
+        } else {
+            i++;
+        }
+    }
+}
+
+void freeStudent(Student* s) {
+    if (s) {
+        free(s->nume);
+        free(s->specializare);
+        free(s->email);
+        free(s);
+    }
+}
+
+void freeArbore(NodArb* rad) {
+    if (rad) {
+        freeArbore(rad->st);
+        freeArbore(rad->dr);
+        freeStudent(rad->info);
+        free(rad);
+    }
+}
+
+int main() {
+    NodArb* arbore = citireFisier("studenti.txt");
+
+    if (arbore && arbore->dr) {
+        printf("Numar frunze subarbore drept: %d\n", numarFrunze(arbore->dr));
+    }
+
+    Heap heap;
+    heap.capacitate = 100;
+    heap.dim = 0;
+    heap.elemente = (Student**)malloc(heap.capacitate * sizeof(Student*));
+
+    construireHeap(arbore, &heap);
+    for (int i = (heap.dim / 2) - 1; i >= 0; i--) heapify(&heap, i); // filtrare heap
+
+    afisareFrunzeHeap(&heap);
+
+    parcurgereArbore(arbore);
+    parcurgereHeap(&heap);
+
+    stergereCriteriu(&heap);
+    printf("Heap dupa stergere:\n");
+    parcurgereHeap(&heap);
+
+    // cleanup
+    freeArbore(arbore);
+    free(heap.elemente);
+    return 0;
+}
+
