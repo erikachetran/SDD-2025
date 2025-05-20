@@ -1,0 +1,293 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+typedef struct Pacient {
+    int id;
+    char* nume;
+    int varsta;
+    float* scorRisc;  // pointer
+    char* boala;      // pointer
+    int severitate;   // 1-10
+    char* spital;     // pointer
+} Pacient;
+
+typedef struct NodGraf {
+    Pacient info;
+    struct NodGraf** vecini;
+    int nrVecini;
+} NodGraf;
+
+typedef struct NodAVL {
+    Pacient info;
+    struct NodAVL* st;
+    struct NodAVL* dr;
+    int inaltime;
+} NodAVL;
+
+
+int max(int a, int b) {
+    return (a > b) ? a : b;
+}
+
+int inaltime(NodAVL* n) {
+    if (n == NULL) return 0;
+    return n->inaltime;
+}
+
+NodAVL* creareNodAVL(Pacient p) {
+    NodAVL* n = (NodAVL*)malloc(sizeof(NodAVL));
+    n->info = p;
+    n->st = n->dr = NULL;
+    n->inaltime = 1;
+    return n;
+}
+
+Pacient deepCopyPacient(Pacient p) {
+    Pacient nou;
+    nou.id = p.id;
+    nou.nume = strdup(p.nume);
+    nou.varsta = p.varsta;
+    nou.scorRisc = (float*)malloc(sizeof(float));
+    *(nou.scorRisc) = *(p.scorRisc);
+    nou.boala = strdup(p.boala);
+    nou.severitate = p.severitate;
+    nou.spital = strdup(p.spital);
+    return nou;
+}
+
+void afisarePacient(Pacient p) {
+    printf("ID: %d, Nume: %s, Varsta: %d, Scor: %.2f, Boala: %s, Severitate: %d, Spital: %s\n",
+           p.id, p.nume, p.varsta, *(p.scorRisc), p.boala, p.severitate, p.spital);
+}
+
+
+NodAVL* rotatieDreapta(NodAVL* y) {
+    NodAVL* x = y->st;
+    NodAVL* T2 = x->dr;
+
+    x->dr = y;
+    y->st = T2;
+
+    y->inaltime = max(inaltime(y->st), inaltime(y->dr)) + 1;
+    x->inaltime = max(inaltime(x->st), inaltime(x->dr)) + 1;
+
+    return x;
+}
+
+NodAVL* rotatieStanga(NodAVL* x) {
+    NodAVL* y = x->dr;
+    NodAVL* T2 = y->st;
+
+    y->st = x;
+    x->dr = T2;
+
+    x->inaltime = max(inaltime(x->st), inaltime(x->dr)) + 1;
+    y->inaltime = max(inaltime(y->st), inaltime(y->dr)) + 1;
+
+    return y;
+}
+
+int getBalance(NodAVL* n) {
+    if (n == NULL) return 0;
+    return inaltime(n->st) - inaltime(n->dr);
+}
+
+NodAVL* inserareAVL(NodAVL* rad, Pacient p) {
+    if (rad == NULL) return creareNodAVL(p);
+
+    if (p.id < rad->info.id)
+        rad->st = inserareAVL(rad->st, p);
+    else if (p.id > rad->info.id)
+        rad->dr = inserareAVL(rad->dr, p);
+    else return rad;
+
+    rad->inaltime = 1 + max(inaltime(rad->st), inaltime(rad->dr));
+    int balance = getBalance(rad);
+
+    if (balance > 1 && p.id < rad->st->info.id)
+        return rotatieDreapta(rad);
+    if (balance < -1 && p.id > rad->dr->info.id)
+        return rotatieStanga(rad);
+    if (balance > 1 && p.id > rad->st->info.id) {
+        rad->st = rotatieStanga(rad->st);
+        return rotatieDreapta(rad);
+    }
+    if (balance < -1 && p.id < rad->dr->info.id) {
+        rad->dr = rotatieDreapta(rad->dr);
+        return rotatieStanga(rad);
+    }
+
+    return rad;
+}
+
+
+float calculeazaMediaVarstei(NodGraf* graf[], int nrNoduri) {
+    float suma = 0;
+    for (int i = 0; i < nrNoduri; i++) {
+        suma += graf[i]->info.varsta;
+    }
+    return suma / nrNoduri;
+}
+
+void inOrdineAVL(NodAVL* rad) {
+    if (rad) {
+        inOrdineAVL(rad->st);
+        afisarePacient(rad->info);
+        inOrdineAVL(rad->dr);
+    }
+}
+
+void traverseGraf(NodGraf* graf[], int nrNoduri) {
+    for (int i = 0; i < nrNoduri; i++) {
+        afisarePacient(graf[i]->info);
+    }
+}
+
+// Lista noduri cu severitate >= 7
+Pacient* filtreazaSeveritate(NodGraf* graf[], int nrNoduri, int* dimRezultat) {
+    Pacient* rezultat = (Pacient*)malloc(sizeof(Pacient) * nrNoduri);
+    *dimRezultat = 0;
+    for (int i = 0; i < nrNoduri; i++) {
+        if (graf[i]->info.severitate >= 7) {
+            rezultat[(*dimRezultat)++] = graf[i]->info;
+        }
+    }
+    return rezultat;
+}
+
+// Suma scorurilor pacientilor peste o varsta si severitate minima
+float sumaScoruri(NodAVL* rad, int varstaMin, int sevMin) {
+    if (!rad) return 0;
+    float suma = 0;
+    if (rad->info.varsta > varstaMin && rad->info.severitate >= sevMin)
+        suma += *(rad->info.scorRisc);
+    suma += sumaScoruri(rad->st, varstaMin, sevMin);
+    suma += sumaScoruri(rad->dr, varstaMin, sevMin);
+    return suma;
+}
+
+// Stergere AVL dupa ID
+NodAVL* stergeAVL(NodAVL* rad, int id) {
+    if (!rad) return NULL;
+    if (id < rad->info.id)
+        rad->st = stergeAVL(rad->st, id);
+    else if (id > rad->info.id)
+        rad->dr = stergeAVL(rad->dr, id);
+    else {
+        if (!rad->st || !rad->dr) {
+            NodAVL* temp = rad->st ? rad->st : rad->dr;
+            free(rad->info.nume);
+            free(rad->info.boala);
+            free(rad->info.scorRisc);
+            free(rad->info.spital);
+            free(rad);
+            return temp;
+        } else {
+            NodAVL* succ = rad->dr;
+            while (succ->st) succ = succ->st;
+            rad->info = deepCopyPacient(succ->info);
+            rad->dr = stergeAVL(rad->dr, succ->info.id);
+        }
+    }
+
+    rad->inaltime = 1 + max(inaltime(rad->st), inaltime(rad->dr));
+    int balance = getBalance(rad);
+
+    if (balance > 1 && getBalance(rad->st) >= 0)
+        return rotatieDreapta(rad);
+    if (balance > 1 && getBalance(rad->st) < 0) {
+        rad->st = rotatieStanga(rad->st);
+        return rotatieDreapta(rad);
+    }
+    if (balance < -1 && getBalance(rad->dr) <= 0)
+        return rotatieStanga(rad);
+    if (balance < -1 && getBalance(rad->dr) > 0) {
+        rad->dr = rotatieDreapta(rad->dr);
+        return rotatieStanga(rad);
+    }
+
+    return rad;
+}
+
+void eliberareAVL(NodAVL* rad) {
+    if (rad) {
+        eliberareAVL(rad->st);
+        eliberareAVL(rad->dr);
+        free(rad->info.nume);
+        free(rad->info.boala);
+        free(rad->info.scorRisc);
+        free(rad->info.spital);
+        free(rad);
+    }
+}
+
+// --------------------------- MAIN ---------------------------
+
+int main() {
+    FILE* f = fopen("graf.txt", "r");
+    int nrNoduri;
+    fscanf(f, "%d", &nrNoduri);
+
+    NodGraf** graf = (NodGraf**)malloc(nrNoduri * sizeof(NodGraf*));
+
+    for (int i = 0; i < nrNoduri; i++) {
+        graf[i] = (NodGraf*)malloc(sizeof(NodGraf));
+        graf[i]->info.scorRisc = (float*)malloc(sizeof(float));
+        graf[i]->info.nume = (char*)malloc(50);
+        graf[i]->info.boala = (char*)malloc(50);
+        graf[i]->info.spital = (char*)malloc(50);
+
+        fscanf(f, "%d %s %d %f %s %d %s",
+               &graf[i]->info.id,
+               graf[i]->info.nume,
+               &graf[i]->info.varsta,
+               graf[i]->info.scorRisc,
+               graf[i]->info.boala,
+               &graf[i]->info.severitate,
+               graf[i]->info.spital);
+
+        graf[i]->vecini = NULL;
+        graf[i]->nrVecini = 0;
+    }
+    fclose(f);
+
+    printf("\n--- Media varstei ---\n");
+    printf("Media: %.2f\n", calculeazaMediaVarstei(graf, nrNoduri));
+
+    NodAVL* arbore = NULL;
+    for (int i = 0; i < nrNoduri; i++) {
+        arbore = inserareAVL(arbore, deepCopyPacient(graf[i]->info));
+    }
+
+    printf("\n--- Traversare AVL inordine ---\n");
+    inOrdineAVL(arbore);
+
+    printf("\n--- Noduri cu severitate >= 7 ---\n");
+    int dim;
+    Pacient* lista = filtreazaSeveritate(graf, nrNoduri, &dim);
+    for (int i = 0; i < dim; i++) afisarePacient(lista[i]);
+    free(lista);
+
+    printf("\n--- Suma scoruri cu varsta > 50 si severitate >= 7 ---\n");
+    printf("Suma: %.2f\n", sumaScoruri(arbore, 50, 7));
+
+    printf("\n--- Traversare graf ---\n");
+    traverseGraf(graf, nrNoduri);
+
+    printf("\n--- Stergere nod cu ID 2 ---\n");
+    arbore = stergeAVL(arbore, 2);
+    inOrdineAVL(arbore);
+
+    for (int i = 0; i < nrNoduri; i++) {
+        free(graf[i]->info.nume);
+        free(graf[i]->info.boala);
+        free(graf[i]->info.spital);
+        free(graf[i]->info.scorRisc);
+        free(graf[i]);
+    }
+    free(graf);
+    eliberareAVL(arbore);
+    return 0;
+}
+
